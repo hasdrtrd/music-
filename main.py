@@ -8,7 +8,7 @@ from aiohttp import web
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
-TARGET_BOT = os.environ.get("TARGET_BOT", "@ChatBot") # Replace @ChatBot with the actual bot username in Render
+TARGET_BOT = os.environ.get("TARGET_BOT", "@username_of_the_bot") 
 STICKER_ID = os.environ.get("STICKER_ID", "") 
 
 # Initialize the Telegram Client
@@ -18,10 +18,10 @@ client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 async def handler(event):
     text = event.raw_text
     
-    # 1. When the bot connects you to a partner
-    if 'Start chatting!' in text or 'Partner found' in text:
+    # 1. When the bot connects you to a partner (catches "👀 Start chatting!" and extra info)
+    if 'Start chatting!' in text:
         print("Partner found. Sending sticker...")
-        await asyncio.sleep(1) # Tiny delay to look natural and avoid bans
+        await asyncio.sleep(1) # Tiny delay to look natural
         
         # Send the sticker using its File ID
         try:
@@ -36,11 +36,12 @@ async def handler(event):
         print("Skipping partner...")
         await event.respond('/stop')
         
-    # 2. When you leave the chat, or search is taking too long
-    elif 'You left the chat' in text or 'search is taking too long' in text.lower():
+    # 2. When you leave the chat, search takes too long, or it drops you to the main menu
+    elif 'You left the chat' in text or 'search is taking too long' in text.lower() or "I'm an anonymous chat bot" in text:
         print("Searching for new partner...")
         await asyncio.sleep(1)
-        await event.respond('⚡️ Find a Partner') # Replace with the exact button text if different
+        # Using the exact button text from your log
+        await event.respond('⚡️ Find a Partner') 
 
 # --- Dummy web server to keep Render Web Service active ---
 async def handle(request):
@@ -66,4 +67,4 @@ async def main():
 
 if __name__ == '__main__':
     client.loop.run_until_complete(main())
-
+    
