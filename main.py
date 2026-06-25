@@ -2,8 +2,6 @@ import os
 import asyncio
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from telethon.tl.functions.messages import GetStickerSetRequest
-from telethon.tl.types import InputStickerSetShortName
 from aiohttp import web
 
 # --- Environment Variables loaded from Render ---
@@ -12,12 +10,9 @@ API_HASH = os.environ.get("API_HASH", "")
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
 TARGET_BOT = os.environ.get("TARGET_BOT", "@username_of_the_bot") 
 
-# Using the exact set_name from your previous message
-STICKER_SET_NAME = os.environ.get("STICKER_SET_NAME", "pk_6204240_by_Ctikerubot")
-
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
-# Global variable to store the actual sticker object once loaded
+# Global variable to hold the actual sticker
 my_sticker = None
 
 @client.on(events.NewMessage(chats=TARGET_BOT))
@@ -26,15 +21,15 @@ async def handler(event):
     
     # 1. When the bot connects you to a partner
     if 'Start chatting!' in text:
-        print("Partner found. Sending sticker directly from set...")
+        print("Partner found. Sending sticker...")
         await asyncio.sleep(1) 
         
-        # Send the sticker object we loaded from the set
+        # Send the sticker we grabbed from Saved Messages
         try:
             if my_sticker:
                 await client.send_file(event.chat_id, my_sticker)
             else:
-                await event.respond('❌ ERROR: Sticker was not loaded from the set properly.')
+                await event.respond('❌ ERROR: I could not find a sticker in your Saved Messages!')
         except Exception as e:
             await event.respond(f'❌ ERROR SENDING STICKER: {e}')
         
@@ -50,25 +45,27 @@ async def handler(event):
 
 # --- Dummy web server to keep Render Web Service active ---
 async def handle(request):
-    return web.Response(text="Telegram Userbot is running with a live Sticker Set!")
+    return web.Response(text="Telegram Userbot is running and checking Saved Messages!")
 
 async def main():
     global my_sticker
     await client.start()
     print("Userbot successfully connected to Telegram!")
     
-    # Load the sticker set directly from Telegram's servers on startup
+    # Check "Saved Messages" for the sticker on startup
+    print("Looking for a sticker in your Saved Messages...")
     try:
-        print(f"Fetching sticker set: {STICKER_SET_NAME}...")
-        sticker_set = await client(GetStickerSetRequest(
-            stickerset=InputStickerSetShortName(short_name=STICKER_SET_NAME)
-        ))
-        
-        # Grab the first sticker in the pack (Index 0)
-        my_sticker = sticker_set.documents[0] 
-        print("Successfully grabbed sticker from the set!")
+        # iter_messages('me') looks at your Saved Messages
+        async for message in client.iter_messages('me', limit=20):
+            if message.sticker:
+                my_sticker = message.document
+                print("✅ Successfully loaded sticker from Saved Messages!")
+                break
+                
+        if not my_sticker:
+            print("⚠️ Could not find any sticker in the last 20 messages of your Saved Messages.")
     except Exception as e:
-        print(f"Failed to load sticker set: {e}")
+        print(f"Error checking Saved Messages: {e}")
     
     # Start web server
     app = web.Application()
@@ -83,3 +80,4 @@ async def main():
 
 if __name__ == '__main__':
     client.loop.run_until_complete(main())
+                
