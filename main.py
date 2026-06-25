@@ -18,10 +18,10 @@ client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 async def handler(event):
     text = event.raw_text
     
-    # 1. When the bot connects you to a partner (catches "👀 Start chatting!" and extra info)
+    # 1. When the bot connects you to a partner
     if 'Start chatting!' in text:
         print("Partner found. Sending sticker...")
-        await asyncio.sleep(1) # Tiny delay to look natural
+        await asyncio.sleep(1) 
         
         # Send the sticker using its File ID
         try:
@@ -32,7 +32,7 @@ async def handler(event):
         except Exception as e:
             print(f"Could not send sticker: {e}")
         
-        await asyncio.sleep(1) # Tiny delay before skipping
+        await asyncio.sleep(1) 
         print("Skipping partner...")
         await event.respond('/stop')
         
@@ -40,19 +40,17 @@ async def handler(event):
     elif 'You left the chat' in text or 'search is taking too long' in text.lower() or "I'm an anonymous chat bot" in text:
         print("Searching for new partner...")
         await asyncio.sleep(1)
-        # Using the exact button text from your log
-        await event.respond('⚡️ Find a Partner') 
+        # FIXED: Sending the actual command instead of the button text
+        await event.respond('/search') 
 
 # --- Dummy web server to keep Render Web Service active ---
 async def handle(request):
     return web.Response(text="Telegram Userbot is running successfully!")
 
 async def main():
-    # Start the Telegram client
     await client.start()
     print("Userbot successfully connected to Telegram!")
     
-    # Start the web server
     app = web.Application()
     app.add_routes([web.get('/', handle)])
     runner = web.AppRunner(app)
@@ -62,7 +60,6 @@ async def main():
     await site.start()
     print(f"Web server started on port {port}")
     
-    # Keep the client running indefinitely
     await client.run_until_disconnected()
 
 if __name__ == '__main__':
