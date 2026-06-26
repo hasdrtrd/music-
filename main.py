@@ -79,17 +79,39 @@ async def handler(event):
         await event.respond('/stop')
 
     # ==========================================
-    # BOT 3
+    # BOT 3: "Anonymous Chat - Dating, Random"
     # ==========================================
     elif 'Found someone!' in text:
+        print("Bot 3: Partner found.")
+        await asyncio.sleep(1.5)
+        
+        # Send text message
+        try: 
+            await event.respond(msg)
+        except: 
+            pass
+        
         await asyncio.sleep(1)
-        try: await event.respond(msg)
-        except: pass
-        await asyncio.sleep(0.5)
-        if len(stickers) >= 3: await client.send_file(event.chat_id, stickers[2])
-        elif len(stickers) >= 1: await client.send_file(event.chat_id, stickers[0])
+        
+        # Try sending sticker, but catch the "I can't send these" error so it doesn't crash
+        try:
+            stickers = await get_stickers()
+            if len(stickers) >= 3: 
+                await client.send_file(event.chat_id, stickers[2])
+            elif len(stickers) >= 1: 
+                await client.send_file(event.chat_id, stickers[0])
+        except Exception as e:
+            print(f"Bot 3 blocked the sticker: {e}")
+            
         await asyncio.sleep(1)
         await event.respond('/next')
+
+    # Catch-all to restart loop if bot gets stuck
+    elif 'Room:' in text or 'Reactions:' in text:
+        # If the bot is stuck in a room but no action was taken, force skip
+        await asyncio.sleep(2)
+        await event.respond('/next')
+        
 
 # --- Dummy web server ---
 async def handle(request):
