@@ -9,7 +9,7 @@ API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
 
-# Support multiple bots: Split by comma so you can put "@Bot1, @Bot2" in Render
+# Support multiple bots: Split by comma
 TARGET_BOTS = [bot.strip() for bot in os.environ.get("TARGET_BOT", "@username_of_the_bot").split(",")]
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
@@ -42,11 +42,10 @@ async def handler(event):
         except Exception as e:
             print(f'❌ ERROR: {e}')
         
-        await asyncio.sleep(1) 
+        await asyncio.sleep(1.5) 
         print("Bot 1: Skipping partner...")
         await event.respond('/stop')
         
-    # FIXED: Now checks a list of phrases so it never gets stuck!
     elif any(phrase in text for phrase in [
         'You left the chat', 
         "I'm an anonymous chat bot", 
@@ -71,9 +70,22 @@ async def handler(event):
         except Exception as e:
             print(f'❌ ERROR: {e}')
         
-        await asyncio.sleep(1) 
+        # INCREASED DELAY to 2 seconds to avoid the "Wait 1s" spam filter
+        await asyncio.sleep(2) 
         print("Bot 2: Skipping partner...")
         await event.respond('/next') 
+
+    # Catch when the partner skips you first
+    elif 'Your partner has stopped the chat 😞' in text:
+        print("Bot 2: Partner left. Searching for new partner...")
+        await asyncio.sleep(1)
+        await event.respond('/search')
+        
+    # Catch the cooldown warning just in case it ever happens again
+    elif 'Wait' in text and '/next' in text:
+        print("Bot 2: Cooldown hit. Waiting and retrying...")
+        await asyncio.sleep(2)
+        await event.respond('/next')
 
 # --- Dummy web server to keep Render Web Service active ---
 async def handle(request):
@@ -83,7 +95,6 @@ async def main():
     await client.start()
     print(f"Userbot successfully connected! Listening to bots: {TARGET_BOTS}")
     
-    # Start web server
     app = web.Application()
     app.add_routes([web.get('/', handle)])
     runner = web.AppRunner(app)
@@ -96,4 +107,4 @@ async def main():
 
 if __name__ == '__main__':
     client.loop.run_until_complete(main())
-    
+        
