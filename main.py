@@ -12,8 +12,15 @@ TARGET_BOT = os.environ.get("TARGET_BOT", "@username_of_the_bot")
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
-# Global variable to hold the actual sticker
-my_sticker = None
+async def get_fresh_sticker():
+    """Helper function to fetch the latest sticker dynamically right when needed"""
+    try:
+        async for message in client.iter_messages('me', limit=20):
+            if message.sticker:
+                return message.document
+    except Exception as e:
+        print(f"Error fetching fresh sticker: {e}")
+    return None
 
 @client.on(events.NewMessage(chats=TARGET_BOT))
 async def handler(event):
@@ -21,13 +28,16 @@ async def handler(event):
     
     # 1. When the bot connects you to a partner
     if 'Start chatting!' in text:
-        print("Partner found. Sending sticker...")
+        print("Partner found. Fetching live sticker from Saved Messages...")
         await asyncio.sleep(1) 
         
-        # Send the sticker we grabbed from Saved Messages
+        # FIXED: Grabbing a completely fresh token so it never expires
+        current_sticker = await get_fresh_sticker()
+        
         try:
-            if my_sticker:
-                await client.send_file(event.chat_id, my_sticker)
+            if current_sticker:
+                await client.send_file(event.chat_id, current_sticker)
+                print("Sticker sent successfully!")
             else:
                 await event.respond('❌ ERROR: I could not find a sticker in your Saved Messages!')
         except Exception as e:
@@ -48,24 +58,8 @@ async def handle(request):
     return web.Response(text="Telegram Userbot is running and checking Saved Messages!")
 
 async def main():
-    global my_sticker
     await client.start()
     print("Userbot successfully connected to Telegram!")
-    
-    # Check "Saved Messages" for the sticker on startup
-    print("Looking for a sticker in your Saved Messages...")
-    try:
-        # iter_messages('me') looks at your Saved Messages
-        async for message in client.iter_messages('me', limit=20):
-            if message.sticker:
-                my_sticker = message.document
-                print("✅ Successfully loaded sticker from Saved Messages!")
-                break
-                
-        if not my_sticker:
-            print("⚠️ Could not find any sticker in the last 20 messages of your Saved Messages.")
-    except Exception as e:
-        print(f"Error checking Saved Messages: {e}")
     
     # Start web server
     app = web.Application()
@@ -80,4 +74,4 @@ async def main():
 
 if __name__ == '__main__':
     client.loop.run_until_complete(main())
-                
+    
