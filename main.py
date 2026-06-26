@@ -8,7 +8,9 @@ from aiohttp import web
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
-TARGET_BOT = os.environ.get("TARGET_BOT", "@username_of_the_bot") 
+
+# Support multiple bots: Split by comma so you can put "@Bot1, @Bot2" in Render
+TARGET_BOTS = [bot.strip() for bot in os.environ.get("TARGET_BOT", "@username_of_the_bot").split(",")]
 
 client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
@@ -22,44 +24,64 @@ async def get_fresh_sticker():
         print(f"Error fetching fresh sticker: {e}")
     return None
 
-@client.on(events.NewMessage(chats=TARGET_BOT))
+@client.on(events.NewMessage(chats=TARGET_BOTS))
 async def handler(event):
     text = event.raw_text
     
-    # 1. When the bot connects you to a partner
+    # ==========================================
+    # BOT 1: "Dating💜 - Anonymous Chat" Logic
+    # ==========================================
     if 'Start chatting!' in text:
-        print("Partner found. Fetching live sticker from Saved Messages...")
+        print("Bot 1: Partner found. Sending sticker...")
         await asyncio.sleep(1) 
         
-        # FIXED: Grabbing a completely fresh token so it never expires
         current_sticker = await get_fresh_sticker()
-        
         try:
             if current_sticker:
                 await client.send_file(event.chat_id, current_sticker)
-                print("Sticker sent successfully!")
-            else:
-                await event.respond('❌ ERROR: I could not find a sticker in your Saved Messages!')
         except Exception as e:
-            await event.respond(f'❌ ERROR SENDING STICKER: {e}')
+            print(f'❌ ERROR: {e}')
         
         await asyncio.sleep(1) 
-        print("Skipping partner...")
+        print("Bot 1: Skipping partner...")
         await event.respond('/stop')
         
-    # 2. When you leave the chat or hit the main menu
-    elif 'You left the chat' in text or "I'm an anonymous chat bot" in text:
-        print("Searching for new partner...")
+    # FIXED: Now checks a list of phrases so it never gets stuck!
+    elif any(phrase in text for phrase in [
+        'You left the chat', 
+        "I'm an anonymous chat bot", 
+        'Your partner ended the chat', 
+        'Rate your partner'
+    ]):
+        print("Bot 1: Chat ended. Searching for new partner...")
         await asyncio.sleep(1)
         await event.respond('/search') 
 
+    # ==========================================
+    # BOT 2: "𝐌𝐮𝐭𝐮𝐚𝐥 ⋆ Anonymous Chat" Logic
+    # ==========================================
+    elif 'Partner found 😺' in text:
+        print("Bot 2: Partner found. Sending sticker...")
+        await asyncio.sleep(1) 
+        
+        current_sticker = await get_fresh_sticker()
+        try:
+            if current_sticker:
+                await client.send_file(event.chat_id, current_sticker)
+        except Exception as e:
+            print(f'❌ ERROR: {e}')
+        
+        await asyncio.sleep(1) 
+        print("Bot 2: Skipping partner...")
+        await event.respond('/next') 
+
 # --- Dummy web server to keep Render Web Service active ---
 async def handle(request):
-    return web.Response(text="Telegram Userbot is running and checking Saved Messages!")
+    return web.Response(text=f"Telegram Userbot is running and listening to: {', '.join(TARGET_BOTS)}")
 
 async def main():
     await client.start()
-    print("Userbot successfully connected to Telegram!")
+    print(f"Userbot successfully connected! Listening to bots: {TARGET_BOTS}")
     
     # Start web server
     app = web.Application()
